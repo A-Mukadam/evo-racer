@@ -1,0 +1,6 @@
+numpy
+pygame
+deap
+neat-python
+matplotlib
+pytest
