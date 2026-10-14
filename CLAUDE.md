@@ -27,6 +27,10 @@ Evolutionary Computing term project (team of ≤4, application-style).
   - Episode ends if no new checkpoint in ~150 frames.
   - Hard frame cap.
   - Never reward raw distance traveled.
+- **Episode seed:** picks the spawn checkpoint + heading jitter (±5°). Every genome in a generation gets the same seed. `seed=None` = canonical start (checkpoint 0), for manual drive and videos.
+- **Multi-track fitness:** mean of per-track fitness over the 3 training tracks.
+- **Track split:** train on `oval`, `rounded_rect`, `wavy`; hold out `peanut`. `peanut` was redesigned so it is harder than the training set (tightest turn ~66 px radius vs ~75 px on `wavy`; asymmetric ends; pinched waist).
+- **Generalization gap:** report in lap fractions (checkpoints passed / checkpoints per lap) alongside raw fitness, since tracks have different checkpoint counts (25/30/33/35).
 - **Experiments:**
   - Baselines: random weights (matched eval budget), hand-coded heuristic.
   - 30 runs; report mean/std and convergence curves.

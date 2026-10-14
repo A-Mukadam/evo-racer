@@ -61,9 +61,9 @@ def generalization_gap(train_scores: dict, test_scores: dict) -> float:
         test_scores: eval_holdout output on held-out tracks.
 
     Returns:
-        Mean train fitness minus mean test fitness.
-        TODO: raw difference vs. normalized by checkpoints-per-lap (tracks
-        have different checkpoint counts).
+        Mean train fitness minus mean test fitness. Also report the gap in
+        lap fractions (checkpoints passed / checkpoints per lap), since tracks
+        have different checkpoint counts.
     """
     raise NotImplementedError
 

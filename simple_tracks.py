@@ -43,11 +43,18 @@ def wavy(n=260, rx=360.0, ry=220.0, lobes=3, amp=0.18):
     return np.stack([CX + rx * r * np.cos(t), CY + ry * r * np.sin(t)], axis=1)
 
 
-def peanut(n=280, rx=380.0, ry=230.0):
-    """One tight end, one open end. Good generalization hold-out."""
+def peanut(n=280, rx=330.0, ry=200.0, a=0.3, b=0.25):
+    """One tight end, one open end, pinched waist. Generalization hold-out.
+
+    `a` makes the ends unequal (tight end on the left), `b` pinches the waist
+    so the sides bend the other way. Tightest turn ~66 px radius, tighter than
+    any training track (wavy ~75 px).
+    """
     t = np.linspace(0, 2 * np.pi, n, endpoint=False)
-    r = 1.0 - 0.28 * np.cos(t) ** 2
-    return np.stack([CX + rx * r * np.cos(t), CY + ry * r * np.sin(t)], axis=1)
+    r = 1.0 + a * np.cos(t) + b * np.cos(2 * t)
+    pts = np.stack([CX + rx * r * np.cos(t), CY + ry * r * np.sin(t)], axis=1)
+    pts[:, 0] += CX - (pts[:, 0].min() + pts[:, 0].max()) / 2   # `a` shifts it right; recenter
+    return pts
 
 
 # ------------------------------------------------------------------ conversion

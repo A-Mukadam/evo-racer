@@ -25,14 +25,23 @@ evo/ga_deap.py            fixed-topology GA (8-8-2 tanh net, 90-float genome)
 evo/neat_run.py           NEAT
 experiments/run_sweep.py  30-seed sweeps, baselines, held-out eval, ablations
 tests/test_geometry.py    raycast / grid / collision / checkpoint tests
+docs/project_notes.md     plain-language project notes for the presentation (images in docs/img/)
 ```
 
-## Commands (once implemented)
+## Commands
 
 ```bash
 python simple_tracks.py            # preview tracks -> tracks_preview.png
-python -m env.render               # W1: manual drive with ray overlay
-pytest tests/
+python -m env.render [track]       # W1: manual drive with ray overlay (box, oval, rounded_rect, wavy, peanut)
+pytest                             # geometry + env tests
+```
+
+Manual drive keys: arrows/WASD drive, R restart, N random spawn, TAB next track,
+C toggle checkpoints, ESC quit. `box` is a 4-wall sanity box for checking ray distances.
+
+Not implemented yet (W2+):
+
+```bash
 python -m evo.ga_deap
 python -m evo.neat_run
 python -m experiments.run_sweep

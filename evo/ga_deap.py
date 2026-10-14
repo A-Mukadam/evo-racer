@@ -14,7 +14,7 @@ N_HIDDEN = 8
 N_OUTPUTS = 2
 GENOME_LEN = N_INPUTS * N_HIDDEN + N_HIDDEN + N_HIDDEN * N_OUTPUTS + N_OUTPUTS  # 90
 
-TRAIN_TRACKS = ("oval", "rounded_rect", "wavy")  # TODO: confirm split with team
+TRAIN_TRACKS = ("oval", "rounded_rect", "wavy")
 TEST_TRACKS = ("peanut",)
 
 
@@ -95,8 +95,7 @@ def evaluate(genome, track_names: tuple[str, ...], seed: int) -> tuple[float]:
         seed: generation's shared episode seed.
 
     Returns:
-        1-tuple (fitness,): aggregate of per-track env.game fitness.
-        TODO: mean vs. min across tracks (min punishes specializing).
+        1-tuple (fitness,): mean of per-track env.game fitness.
     """
     raise NotImplementedError
 
