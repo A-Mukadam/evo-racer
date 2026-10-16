@@ -183,3 +183,9 @@ def test_spawn_is_inside_track():
             (ix, iy), (ox, oy) = track.checkpoints[env.next_checkpoint]
             to_next = ((ix + ox) / 2 - s.x, (iy + oy) / 2 - s.y)
             assert to_next[0] * math.cos(s.heading) + to_next[1] * math.sin(s.heading) > 0
+
+
+def test_tracks_pass_layout_checks():
+    """No crossing walls, no turn too tight for the walls, everything on the canvas."""
+    for name in simple_tracks.TRACKS:
+        assert simple_tracks.validate(name) == [], name

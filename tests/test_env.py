@@ -1,20 +1,13 @@
 """Physics and episode-loop tests for env.car / env.game."""
 
-import math
-
-import numpy as np
-
 import simple_tracks
 from env.car import CAR_RADIUS, MAX_SPEED, MAX_TURN_RATE, CarState, step_physics
 from env.game import MAX_FRAMES, STALL_FRAMES, RaceEnv, compute_fitness, run_episode
 from env.track import BOX, load_track
+from experiments.run_sweep import heuristic_policy
 
 
-def follow_gaps(obs):
-    """Steer toward the side with more free space; brake when the front ray is short."""
-    s = obs[:7]
-    steer = 3.0 * ((s[4] + s[5] + s[6]) - (s[0] + s[1] + s[2]))
-    return float(np.clip(steer, -1, 1)), (1.0 if s[3] > 0.45 else -0.3)
+follow_gaps = heuristic_policy   # the hand-coded baseline driver
 
 
 def test_fitness_formula():

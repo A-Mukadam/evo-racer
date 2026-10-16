@@ -15,7 +15,7 @@ import pygame
 
 import simple_tracks
 from env.car import MAX_SPEED, SENSOR_ANGLES, CarState, cast_rays_raw
-from env.game import RaceEnv
+from env.game import RaceEnv, run_episode
 from env.track import Point, Track, load_track
 
 SCREEN_SIZE = (1000, 700)  # pixels; matches the simple_tracks canvas assumption
@@ -30,12 +30,15 @@ RAY = (80, 160, 255)
 HIT = (255, 80, 80)
 TEXT = (235, 235, 235)
 CAR_SPRITE_PX = 28         # car sprite side, pixels: ~25 px nose to tail, ~14 px wide
+GHOST_BODY = (175, 175, 182)  # race(): body colour of the non-leading cars
+GHOST_ALPHA = 150             # race(): 0-255 opacity of the non-leading cars
+QUIET_TEXT = (130, 130, 138)
 
 
-def make_icon() -> pygame.Surface:
+def make_icon(body: tuple[int, int, int] = (215, 35, 45)) -> pygame.Surface:
     """Window / Dock icon: a top-down race car, nose up, drawn on a 128x128 transparent canvas."""
     icon = pygame.Surface((128, 128), pygame.SRCALPHA)
-    body, dark, rim, white = (215, 35, 45), (35, 35, 40), (150, 150, 160), (240, 240, 240)
+    dark, rim, white = (35, 35, 40), (150, 150, 160), (240, 240, 240)
     for x, y, w, h in [(36, 18, 12, 22), (80, 18, 12, 22),     # front tires
                        (32, 76, 16, 30), (80, 76, 16, 30)]:    # rear tires, bigger
         pygame.draw.rect(icon, dark, (x, y, w, h), border_radius=4)
@@ -49,10 +52,14 @@ def make_icon() -> pygame.Surface:
     return icon
 
 
-@lru_cache(maxsize=1)
-def _car_sprite() -> pygame.Surface:
-    """The icon shrunk to CAR_SPRITE_PX, built once."""
-    return pygame.transform.smoothscale(make_icon(), (CAR_SPRITE_PX, CAR_SPRITE_PX))
+@lru_cache(maxsize=2)
+def _car_sprite(ghost: bool = False) -> pygame.Surface:
+    """The icon shrunk to CAR_SPRITE_PX, built once. ghost = gray and see-through."""
+    sprite = pygame.transform.smoothscale(make_icon(GHOST_BODY if ghost else (215, 35, 45)),
+                                          (CAR_SPRITE_PX, CAR_SPRITE_PX))
+    if ghost:
+        sprite.fill((255, 255, 255, GHOST_ALPHA), special_flags=pygame.BLEND_RGBA_MULT)
+    return sprite
 
 
 def init_display(size: tuple[int, int] = SCREEN_SIZE) -> pygame.Surface:
@@ -95,7 +102,7 @@ def draw_track(surface: pygame.Surface, track: Track, show_checkpoints: bool = T
         pygame.draw.line(surface, WALL, a, b, 2)
 
 
-def draw_car(surface: pygame.Surface, state: CarState) -> None:
+def draw_car(surface: pygame.Surface, state: CarState, ghost: bool = False) -> None:
     """Draw the car as a top-down race car pointing along its heading.
 
     Cosmetic only: collisions still use the CAR_RADIUS circle at (x, y).
@@ -103,12 +110,13 @@ def draw_car(surface: pygame.Surface, state: CarState) -> None:
     Args:
         surface: target Surface.
         state: CarState (pixels, radians).
+        ghost: draw it gray and see-through (race() uses this for non-leaders).
 
     Returns:
         None.
     """
     # make_icon() draws the nose pointing up (heading -90 deg); rotozoom turns counterclockwise.
-    sprite = pygame.transform.rotozoom(_car_sprite(), -math.degrees(state.heading) - 90, 1.0)
+    sprite = pygame.transform.rotozoom(_car_sprite(ghost), -math.degrees(state.heading) - 90, 1.0)
     surface.blit(sprite, sprite.get_rect(center=(state.x, state.y)))
 
 
@@ -136,25 +144,51 @@ def draw_rays(surface: pygame.Surface, state: CarState,
         surface.blit(label, (end[0] + 4, end[1] - 6))
 
 
-def draw_hud(surface: pygame.Surface, lines: list[str]) -> None:
+def draw_hud(surface: pygame.Surface, lines: list[str],
+             colors: list[tuple[int, int, int]] | None = None) -> None:
     """Draw text lines (speed, checkpoints, frame, fitness) in a corner.
 
     Args:
         surface: target Surface.
         lines: text to draw, top to bottom.
+        colors: one RGB per line, or None for TEXT on every line.
 
     Returns:
         None.
     """
     font = pygame.font.Font(None, 22)
     for i, line in enumerate(lines):
-        surface.blit(font.render(line, True, TEXT), (10, 10 + 20 * i))
+        surface.blit(font.render(line, True, colors[i] if colors else TEXT), (10, 10 + 20 * i))
 
 
 def draw_hud_bottom(surface: pygame.Surface, line: str) -> None:
     """Draw one text line in the bottom-left corner (controls hint)."""
     font = pygame.font.Font(None, 22)
     surface.blit(font.render(line, True, TEXT), (10, surface.get_height() - 24))
+
+
+def draw_table(surface: pygame.Surface, rows: list[list[str]],
+               colors: list[tuple[int, int, int]], top: int = 10) -> None:
+    """Text rows in aligned columns on a dark see-through panel, top-left.
+
+    Args:
+        surface: target Surface.
+        rows: cells per row; every row has the same number of cells.
+        colors: one RGB per row.
+        top: y of the panel's top edge, pixels.
+    """
+    font = pygame.font.Font(None, 22)
+    gap, pad, line = 18, 8, 20
+    widths = [max(font.size(r[c])[0] for r in rows) for c in range(len(rows[0]))]
+    panel = pygame.Surface((sum(widths) + gap * (len(widths) - 1) + 2 * pad,
+                            line * len(rows) + 2 * pad - 4), pygame.SRCALPHA)
+    panel.fill((*BG, 210))
+    surface.blit(panel, (10 - pad, top))
+    for r, (cells, color) in enumerate(zip(rows, colors)):
+        x = 10
+        for cell, w in zip(cells, widths):
+            surface.blit(font.render(cell, True, color), (x, top + pad + line * r))
+            x += w + gap
 
 
 def _lap_line(env: RaceEnv) -> str:
@@ -278,6 +312,80 @@ def replay(policy, track_name: str, seed: int | None, out_path: str | None = Non
         pygame.display.flip()
         if out_path:
             pygame.image.save(surface, os.path.join(out_path, f"frame_{env.frames_alive:05d}.png"))
+        else:
+            clock.tick(FPS)
+    pygame.quit()
+
+
+def race(policies: list, labels: list[str], track_name: str, seed: int | None,
+         out_path: str | None = None) -> None:
+    """Replay several drivers at once from the same start: the fastest in colour
+    with its rays, every other one as a gray see-through ghost.
+
+    Fastest = highest episode fitness (most track covered, then speed), found by
+    one quick headless run per driver first, so the highlight is fixed from
+    frame 1. Cars don't collide with each other. The window stays open on the
+    final frame until closed (ESC); with out_path it saves frames and exits.
+
+    Args:
+        policies: callables obs (np.ndarray (8,)) -> (steer, throttle).
+        labels: one name per policy, shown in the legend.
+        track_name: key into simple_tracks.TRACKS.
+        seed: episode seed shared by every car (None = canonical start).
+        out_path: directory for PNG frames, or None to only display.
+
+    Returns:
+        None.
+    """
+    track = load_track(track_name)
+    scores = [run_episode(p, track, seed)["fitness"] for p in policies]
+    lead = max(range(len(policies)), key=scores.__getitem__)
+    order = sorted(range(len(policies)), key=scores.__getitem__, reverse=True)
+
+    surface = init_display()
+    clock = pygame.time.Clock()
+    envs = [RaceEnv() for _ in policies]
+    obs = [env.reset(track, seed) for env in envs]
+    if out_path:
+        os.makedirs(out_path, exist_ok=True)
+
+    frame = 0
+    while True:
+        if any(e.type == pygame.QUIT or (e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE)
+               for e in pygame.event.get()):
+            break
+        running = [i for i, env in enumerate(envs) if env.reason is None]
+        for i in running:
+            obs[i], _, _ = envs[i].step(*policies[i](obs[i]))
+        if running:
+            frame += 1
+
+        leader = envs[lead]
+        surface.fill(BG)
+        draw_track(surface, track, True, leader.next_checkpoint if track.checkpoints else None)
+        for i, env in enumerate(envs):
+            if i != lead:
+                draw_car(surface, env.state, ghost=True)
+        draw_rays(surface, leader.state, cast_rays_raw(leader.state, track.walls, track.grid))
+        draw_car(surface, leader.state)
+
+        draw_hud(surface, [f"track {track_name}   seed {seed}   frame {frame}"
+                           + ("" if running else "   -   all cars done, ESC to close")])
+        rows = [["", "driver", "laps", "best lap", "status"]]
+        colors = [QUIET_TEXT]
+        for rank, i in enumerate(order, 1):
+            env = envs[i]
+            status = {"wall": "crashed", None: "running"}.get(env.reason, "finished")
+            rows.append([f"{rank}.", labels[i] + ("  (fastest)" if i == lead else ""), str(len(env.lap_frames)),
+                         f"{min(env.lap_frames) / FPS:.2f} s" if env.lap_frames else "--", status])
+            colors.append(TEXT if i == lead else QUIET_TEXT)
+        draw_table(surface, rows, colors, top=36)
+        pygame.display.flip()
+
+        if out_path:
+            if not running:
+                break
+            pygame.image.save(surface, os.path.join(out_path, f"frame_{frame:05d}.png"))
         else:
             clock.tick(FPS)
     pygame.quit()

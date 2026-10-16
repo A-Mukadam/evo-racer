@@ -13,8 +13,8 @@ from env.car import CarState, collides, observation, step_physics
 from env.track import Segment, Track, spawn_pose
 
 STALL_FRAMES = 150      # frames without a new checkpoint before termination
-MAX_FRAMES = 1000       # hard episode cap, frames: ~2.8 laps of the longest track
-                        # (rounded_rect, ~2155 px) at MAX_SPEED
+MAX_FRAMES = 600        # hard episode cap, frames: ~2.8 laps of the longest track
+                        # (rounded_rect, ~2155 px) at MAX_SPEED (10 px/frame)
 SPAWN_JITTER_DEG = 5.0  # seeded spawns get heading jitter in +/- this, degrees
 
 

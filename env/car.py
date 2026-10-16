@@ -18,14 +18,16 @@ SENSOR_ANGLES = tuple(math.radians(a) for a in SENSOR_ANGLES_DEG)
 
 # First-pass values; tune in the W1 manual-drive loop.
 MAX_RANGE = 200.0     # ray length, pixels; sensor readings are divided by this
-MAX_SPEED = 6.0       # pixels / frame; speed input is divided by this
-ACCEL = 0.2           # pixels / frame^2 at throttle = +1
-BRAKE = 0.4           # pixels / frame^2 at throttle = -1
+MAX_SPEED = 10.0      # pixels / frame; speed input is divided by this. Raised from 6 in V2:
+                      # at 6, full throttle took every corner, so random drivers lapped.
+ACCEL = 0.3           # pixels / frame^2 at throttle = +1 (friction alone caps speed at
+                      # ACCEL * (1 - FRICTION) / FRICTION = 14.7, above MAX_SPEED)
+BRAKE = 0.5           # pixels / frame^2 at throttle = -1
 FRICTION = 0.02       # fractional speed loss per frame, unitless in [0, 1)
 MAX_TURN_RATE = 0.08  # radians / frame at full steer and MAX_SPEED
 TURN_SPEED = 2.0      # pixels / frame; turn rate ramps up linearly to MAX_TURN_RATE
                       # at this speed, then stays flat. So turning radius at full
-                      # steer = speed / MAX_TURN_RATE (75 px at MAX_SPEED): faster
+                      # steer = speed / MAX_TURN_RATE (125 px at MAX_SPEED): faster
                       # cars turn wider and tight corners need braking.
                       # Set TURN_SPEED = MAX_SPEED for a purely linear ramp.
 CAR_RADIUS = 8.0      # collision radius, pixels
