@@ -1,6 +1,7 @@
 """Score saved champions (and the hand-coded baseline) on any tracks.
 
     python -m experiments.evaluate results/ga/default/seed*/champion.json --tracks f1_chicanes,f1_hairpins
+    python -m experiments.evaluate results/neat/default/seed*/champion.json --tracks oval,rounded_rect,wavy,peanut
 
 Prints mean laps per episode and crashes per track over TEST_SEEDS: one row per
 champion, a mean +/- std row across champions, and a hand-coded baseline row.
@@ -8,14 +9,14 @@ Laps (checkpoints passed / checkpoints per lap) are the generalization-gap unit.
 """
 
 import argparse
-import json
 from pathlib import Path
 
 import numpy as np
 
 from env.game import run_episode
 from env.track import load_track
-from evo.ga_deap import TEST_SEEDS, make_policy
+from evo.champion import champion_labels, load_policy
+from evo.ga_deap import TEST_SEEDS
 from experiments.run_sweep import heuristic_policy
 
 
@@ -38,8 +39,8 @@ def main(argv: list[str] | None = None) -> None:
     tracks = args.tracks.split(",")
     n = len(TEST_SEEDS)
 
-    rows = {Path(p).parent.name: score(make_policy(json.loads(Path(p).read_text())["genome"]), tracks)
-            for p in args.champions}
+    rows = {label: score(load_policy(p), tracks)
+            for label, p in zip(champion_labels(args.champions), args.champions)}
     width = max(16, *(len(t) + 4 for t in tracks))
     print(f"laps per episode (crashes out of {n}), {n} test seeds\n")
     print(f"{'':12s}" + "".join(f"{t:>{width}s}" for t in tracks))

@@ -23,7 +23,8 @@ env/render.py             pygame drawing + ray debug overlay (never used during 
 env/game.py               RaceEnv: reset(track, seed) / step(steer, throttle), fitness
 evo/ga_deap.py            fixed-topology GA (8-8-2 tanh net, 90-float genome)
 evo/replay.py             watch a saved champion in the pygame window
-evo/neat_run.py           NEAT
+evo/neat_run.py           NEAT (topology evolved from 8->2 direct; config evo/neat_config.ini)
+evo/champion.py           load any champion.json (GA or NEAT) as a policy
 experiments/run_sweep.py  30-seed sweeps, baselines (hand-coded heuristic_policy), held-out eval, ablations
 experiments/evaluate.py   score saved champions + the hand-coded baseline on any tracks
 tests/test_geometry.py    raycast / grid / collision / checkpoint tests
@@ -59,9 +60,22 @@ python -m evo.ga_deap --seed 0 --out results/ga/f1 --train-tracks f1_chicanes,f1
 python -m experiments.evaluate results/ga/f1/seed*/champion.json --tracks f1_hairpins,peanut
 ```
 
-Not implemented yet (W3+):
+NEAT (W3): same tracks, seeds, fitness and 100 x 100 budget as the GA, so results
+compare directly. Starts with no hidden nodes (8 inputs wired to 2 outputs) and grows.
+Writes `results/neat/default/seed0/` (config.json, neat_config.ini, logbook.csv,
+champion.json + champion.pkl, summary.json). `--help` lists the options; NEAT
+hyperparameters live in `evo/neat_config.ini`.
 
 ```bash
-python -m evo.neat_run
+python -m evo.neat_run --seed 0
+python -m evo.neat_run --seed 0 --out results/neat/f1 --train-tracks f1_chicanes,f1_esses,f1_reverse --test-tracks f1_hairpins,peanut
+python -m evo.replay results/neat/default/seed0/champion.json --track peanut
+python -m evo.replay results/ga/default/seed0/champion.json results/neat/default/seed0/champion.json --track wavy   # GA vs NEAT race
+python -m experiments.evaluate results/neat/default/seed*/champion.json --tracks oval,rounded_rect,wavy,peanut
+```
+
+Not implemented yet (W4+):
+
+```bash
 python -m experiments.run_sweep
 ```
