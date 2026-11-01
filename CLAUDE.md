@@ -29,7 +29,7 @@ Evolutionary Computing term project (team of ≤4, application-style).
   - Hard frame cap.
   - Never reward raw distance traveled.
 - **Episode seed:** picks the spawn checkpoint + heading jitter (±5°). Every genome in a generation gets the same seed. `seed=None` = canonical start (checkpoint 0), for manual drive and videos.
-- **Multi-track fitness:** mean of per-track fitness over the 3 training tracks.
+- **Multi-track fitness:** mean of per-track fitness over the 7 training tracks.
 - **Track split:** train on `oval`, `rounded_rect`, `wavy` + the 4 F1 courses (`TRAIN_TRACKS`); hold out `peanut`. `peanut` was redesigned so it is harder than the training set (tightest turn ~66 px radius; asymmetric ends; pinched waist).
   Changed from 3 training tracks: oval/rounded_rect/wavy can all be taken flat out, so every GA and NEAT champion learned "always 10 px/frame" and crashed at peanut's tight end (100%). Swapping wavy for one hard track (f1_esses) didn't help (0/3 lap peanut). Training on all 7: 3/5 GA seeds lap peanut with 0 crashes (mean 2.16 laps vs 0.71); the rest, and NEAT seed 0, crash where peanut's tight end flows straight into the waist's opposite bend, a combination no training track has.
 - **Generalization gap:** report in lap fractions (checkpoints passed / checkpoints per lap) alongside raw fitness, since tracks have different checkpoint counts (25 to 53 per lap).
