@@ -30,12 +30,14 @@ RAY = (80, 160, 255)
 HIT = (255, 80, 80)
 TEXT = (235, 235, 235)
 CAR_SPRITE_PX = 28         # car sprite side, pixels: ~25 px nose to tail, ~14 px wide
-GHOST_BODY = (175, 175, 182)  # race(): body colour of the non-leading cars
-GHOST_ALPHA = 150             # race(): 0-255 opacity of the non-leading cars
+CAR_BODY = (215, 35, 45)      # manual drive / single replay
+METHOD_BODY = {"ga": (215, 35, 45), "neat": (40, 110, 230)}           # race(): each method's leader
+METHOD_GHOST = {"ga": (240, 150, 155), "neat": (150, 185, 245)}       # race(): its other drivers, lighter
+GHOST_ALPHA = 130             # race(): 0-255 opacity of the non-leading cars
 QUIET_TEXT = (130, 130, 138)
 
 
-def make_icon(body: tuple[int, int, int] = (215, 35, 45)) -> pygame.Surface:
+def make_icon(body: tuple[int, int, int] = CAR_BODY) -> pygame.Surface:
     """Window / Dock icon: a top-down race car, nose up, drawn on a 128x128 transparent canvas."""
     icon = pygame.Surface((128, 128), pygame.SRCALPHA)
     dark, rim, white = (35, 35, 40), (150, 150, 160), (240, 240, 240)
@@ -52,11 +54,10 @@ def make_icon(body: tuple[int, int, int] = (215, 35, 45)) -> pygame.Surface:
     return icon
 
 
-@lru_cache(maxsize=2)
-def _car_sprite(ghost: bool = False) -> pygame.Surface:
-    """The icon shrunk to CAR_SPRITE_PX, built once. ghost = gray and see-through."""
-    sprite = pygame.transform.smoothscale(make_icon(GHOST_BODY if ghost else (215, 35, 45)),
-                                          (CAR_SPRITE_PX, CAR_SPRITE_PX))
+@lru_cache(maxsize=None)
+def _car_sprite(body: tuple[int, int, int] = CAR_BODY, ghost: bool = False) -> pygame.Surface:
+    """The icon in `body` colour shrunk to CAR_SPRITE_PX, built once. ghost = see-through."""
+    sprite = pygame.transform.smoothscale(make_icon(body), (CAR_SPRITE_PX, CAR_SPRITE_PX))
     if ghost:
         sprite.fill((255, 255, 255, GHOST_ALPHA), special_flags=pygame.BLEND_RGBA_MULT)
     return sprite
@@ -102,7 +103,8 @@ def draw_track(surface: pygame.Surface, track: Track, show_checkpoints: bool = T
         pygame.draw.line(surface, WALL, a, b, 2)
 
 
-def draw_car(surface: pygame.Surface, state: CarState, ghost: bool = False) -> None:
+def draw_car(surface: pygame.Surface, state: CarState, ghost: bool = False,
+             body: tuple[int, int, int] = CAR_BODY) -> None:
     """Draw the car as a top-down race car pointing along its heading.
 
     Cosmetic only: collisions still use the CAR_RADIUS circle at (x, y).
@@ -110,13 +112,14 @@ def draw_car(surface: pygame.Surface, state: CarState, ghost: bool = False) -> N
     Args:
         surface: target Surface.
         state: CarState (pixels, radians).
-        ghost: draw it gray and see-through (race() uses this for non-leaders).
+        ghost: draw it see-through (race() uses this for non-leaders).
+        body: RGB body colour.
 
     Returns:
         None.
     """
     # make_icon() draws the nose pointing up (heading -90 deg); rotozoom turns counterclockwise.
-    sprite = pygame.transform.rotozoom(_car_sprite(ghost), -math.degrees(state.heading) - 90, 1.0)
+    sprite = pygame.transform.rotozoom(_car_sprite(body, ghost), -math.degrees(state.heading) - 90, 1.0)
     surface.blit(sprite, sprite.get_rect(center=(state.x, state.y)))
 
 
@@ -318,9 +321,10 @@ def replay(policy, track_name: str, seed: int | None, out_path: str | None = Non
 
 
 def race(policies: list, labels: list[str], track_name: str, seed: int | None,
-         out_path: str | None = None) -> None:
-    """Replay several drivers at once from the same start: the fastest in colour
-    with its rays, every other one as a gray see-through ghost.
+         out_path: str | None = None, methods: list[str] | None = None) -> None:
+    """Replay several drivers at once from the same start. Each method's fastest
+    driver is drawn solid in its colour (GA red, NEAT blue), the rest of that
+    method as lighter see-through ghosts; the overall fastest also shows its rays.
 
     Fastest = highest episode fitness (most track covered, then speed), found by
     one quick headless run per driver first, so the highlight is fixed from
@@ -333,14 +337,19 @@ def race(policies: list, labels: list[str], track_name: str, seed: int | None,
         track_name: key into simple_tracks.TRACKS.
         seed: episode seed shared by every car (None = canonical start).
         out_path: directory for PNG frames, or None to only display.
+        methods: "ga" | "neat" per policy (keys of METHOD_BODY), or None = all "ga".
 
     Returns:
         None.
     """
     track = load_track(track_name)
+    methods = methods or ["ga"] * len(policies)
     scores = [run_episode(p, track, seed)["fitness"] for p in policies]
     lead = max(range(len(policies)), key=scores.__getitem__)
     order = sorted(range(len(policies)), key=scores.__getitem__, reverse=True)
+    method_leads = {max((i for i in range(len(policies)) if methods[i] == m), key=scores.__getitem__)
+                    for m in set(methods)}
+    body = [METHOD_BODY[m] if i in method_leads else METHOD_GHOST[m] for i, m in enumerate(methods)]
 
     surface = init_display()
     clock = pygame.time.Clock()
@@ -363,11 +372,12 @@ def race(policies: list, labels: list[str], track_name: str, seed: int | None,
         leader = envs[lead]
         surface.fill(BG)
         draw_track(surface, track, True, leader.next_checkpoint if track.checkpoints else None)
-        for i, env in enumerate(envs):
-            if i != lead:
-                draw_car(surface, env.state, ghost=True)
+        for i, env in enumerate(envs):   # ghosts under the method leaders
+            if i not in method_leads:
+                draw_car(surface, env.state, ghost=True, body=body[i])
         draw_rays(surface, leader.state, cast_rays_raw(leader.state, track.walls, track.grid))
-        draw_car(surface, leader.state)
+        for i in sorted(method_leads, key=lambda i: i == lead):   # overall leader on top
+            draw_car(surface, envs[i].state, body=body[i])
 
         draw_hud(surface, [f"track {track_name}   seed {seed}   frame {frame}"
                            + ("" if running else "   -   all cars done, ESC to close")])
@@ -378,7 +388,7 @@ def race(policies: list, labels: list[str], track_name: str, seed: int | None,
             status = {"wall": "crashed", None: "running"}.get(env.reason, "finished")
             rows.append([f"{rank}.", labels[i] + ("  (fastest)" if i == lead else ""), str(len(env.lap_frames)),
                          f"{min(env.lap_frames) / FPS:.2f} s" if env.lap_frames else "--", status])
-            colors.append(TEXT if i == lead else QUIET_TEXT)
+            colors.append(body[i])
         draw_table(surface, rows, colors, top=36)
         pygame.display.flip()
 

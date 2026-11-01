@@ -42,16 +42,17 @@ def main(argv: list[str] | None = None) -> None:
     rows = {label: score(load_policy(p), tracks)
             for label, p in zip(champion_labels(args.champions), args.champions)}
     width = max(16, *(len(t) + 4 for t in tracks))
+    lw = max(12, *(len(label) + 2 for label in rows))   # label column
     print(f"laps per episode (crashes out of {n}), {n} test seeds\n")
-    print(f"{'':12s}" + "".join(f"{t:>{width}s}" for t in tracks))
+    print(f"{'':{lw}s}" + "".join(f"{t:>{width}s}" for t in tracks))
     for label, r in rows.items():
-        print(f"{label:12s}" + "".join(f"{f'{r[t][0]:.2f} ({r[t][1]})':>{width}s}" for t in tracks))
+        print(f"{label:{lw}s}" + "".join(f"{f'{r[t][0]:.2f} ({r[t][1]})':>{width}s}" for t in tracks))
     laps = np.array([[r[t][0] for t in tracks] for r in rows.values()])
     crashes = np.array([[r[t][1] for t in tracks] for r in rows.values()])
-    print(f"{'mean +/- sd':12s}" + "".join(f"{f'{m:.2f} +/- {s:.2f}':>{width}s}" for m, s in zip(laps.mean(0), laps.std(0))))
-    print(f"{'crash rate':12s}" + "".join(f"{f'{c / (n * len(rows)):.0%}':>{width}s}" for c in crashes.sum(0)))
+    print(f"{'mean +/- sd':{lw}s}" + "".join(f"{f'{m:.2f} +/- {s:.2f}':>{width}s}" for m, s in zip(laps.mean(0), laps.std(0))))
+    print(f"{'crash rate':{lw}s}" + "".join(f"{f'{c / (n * len(rows)):.0%}':>{width}s}" for c in crashes.sum(0)))
     h = score(heuristic_policy, tracks)
-    print(f"{'hand-coded':12s}" + "".join(f"{f'{h[t][0]:.2f} ({h[t][1]})':>{width}s}" for t in tracks))
+    print(f"{'hand-coded':{lw}s}" + "".join(f"{f'{h[t][0]:.2f} ({h[t][1]})':>{width}s}" for t in tracks))
 
 
 if __name__ == "__main__":

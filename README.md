@@ -1,7 +1,7 @@
 # evo-racer
 Evolving neural network drivers for a 2D racing simulator using genetic algorithms and NEAT.
 
-Train on 3 tracks, test on a 4th unseen track, report the generalization gap.
+Train on 7 tracks, test on an 8th unseen track (`peanut`), report the generalization gap.
 
 ## Setup
 
@@ -42,7 +42,8 @@ pytest                             # geometry + env tests
 Manual drive keys: arrows/WASD drive, R restart, N random spawn, TAB next track,
 C toggle checkpoints, ESC quit. `box` is a 4-wall sanity box for checking ray distances.
 
-GA (W2): one run = 100 x 100 generations, ~80 s on 12 cores. Writes
+GA (W2): one run = 100 x 100 generations on the 7 training tracks, ~2.5 min on 12 cores
+(`--processes 4`: ~3x slower, much quieter). Writes
 `results/ga/default/seed0/` (config, logbook.csv, champion.json, summary.json)
 and prints the champion's laps and crashes per track. `--help` lists every GAConfig option.
 
@@ -52,8 +53,9 @@ python -m evo.replay results/ga/default/seed0/champion.json --track peanut
 python -m evo.replay results/ga/default/seed*/champion.json --track wavy   # race: fastest in colour, rest gray
 ```
 
-F1 experiment: 4 F1-inspired courses (`f1_chicanes`, `f1_hairpins`, `f1_esses`,
-`f1_reverse`). Train on 3, hold out `f1_hairpins`; score any champions on any tracks:
+Training tracks: `oval`, `rounded_rect`, `wavy` and 4 F1-inspired courses (`f1_chicanes`,
+`f1_hairpins`, `f1_esses`, `f1_reverse`). `--train-tracks` / `--test-tracks` run any other
+split, e.g. the earlier F1-only experiment; `experiments.evaluate` scores any champions on any tracks:
 
 ```bash
 python -m evo.ga_deap --seed 0 --out results/ga/f1 --train-tracks f1_chicanes,f1_esses,f1_reverse --test-tracks f1_hairpins,peanut
@@ -71,7 +73,7 @@ python -m evo.neat_run --seed 0
 python -m evo.neat_run --seed 0 --out results/neat/f1 --train-tracks f1_chicanes,f1_esses,f1_reverse --test-tracks f1_hairpins,peanut
 python -m evo.replay results/neat/default/seed0/champion.json --track peanut
 python -m evo.replay results/ga/default/seed0/champion.json results/neat/default/seed0/champion.json --track wavy   # GA vs NEAT race
-python -m experiments.evaluate results/neat/default/seed*/champion.json --tracks oval,rounded_rect,wavy,peanut
+python -m experiments.evaluate results/neat/default/seed*/champion.json --tracks wavy,f1_hairpins,peanut
 ```
 
 Not implemented yet (W4+):

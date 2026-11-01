@@ -133,7 +133,11 @@ def run(config: neat.Config, seed: int, generations: int = 100,
             print(f"gen {rec['gen']:3d}  min {rec['min']:7.1f}  avg {rec['avg']:7.1f}  max {rec['max']:7.1f}  "
                   f"species {rec['species']:2d}  best net: {hidden} hidden, {conns} conns", flush=True)
 
-    best = pop.run(fitness_function, generations)
+    pop.run(fitness_function, generations)
+    # Not pop.run's return value: neat-python's best_genome is a live object, and
+    # an elite carried into the next generation is re-scored on that generation's
+    # seed, overwriting its .fitness. gen_bests are copies taken when scored.
+    best = gen_bests[int(np.argmax([r["max"] for r in logbook]))]
 
     # Champion: re-score every generation's best on the same fixed seeds.
     mean_fit = np.zeros(len(gen_bests))

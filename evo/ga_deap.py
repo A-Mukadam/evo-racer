@@ -26,7 +26,11 @@ N_HIDDEN = 8
 N_OUTPUTS = 2
 GENOME_LEN = N_INPUTS * N_HIDDEN + N_HIDDEN + N_HIDDEN * N_OUTPUTS + N_OUTPUTS  # 90
 
-TRAIN_TRACKS = ("oval", "rounded_rect", "wavy")
+# All tracks but peanut. With only oval/rounded_rect/wavy (which can all be taken
+# flat out) every champion learned "always 10 px/frame" and crashed at peanut's
+# tight end (0/5 GA seeds lapped it). On all 7: 3/5 lap it with 0 crashes; the other
+# 2 still crash where the tight end flows into the waist's opposite bend.
+TRAIN_TRACKS = ("oval", "rounded_rect", "wavy", "f1_chicanes", "f1_hairpins", "f1_esses", "f1_reverse")
 TEST_TRACKS = ("peanut",)
 INIT_RANGE = 1.0   # initial weights ~ uniform(-INIT_RANGE, INIT_RANGE)
 VALIDATION_SEEDS = tuple(range(10_000, 10_005))  # champion pick, training tracks

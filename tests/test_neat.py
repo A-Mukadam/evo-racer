@@ -48,7 +48,7 @@ def test_evaluate_is_mean_over_tracks(config):
     g = _genome(config)
     fit = evaluate(g, config, TRAIN_TRACKS, seed=7)
     per_track = [run_episode(make_policy(g, config), load_track(t), 7)["fitness"] for t in TRAIN_TRACKS]
-    assert fit == pytest.approx(sum(per_track) / 3)
+    assert fit == pytest.approx(sum(per_track) / len(TRAIN_TRACKS))
     assert evaluate(g, config, TRAIN_TRACKS, seed=7) == fit                      # deterministic
     pickle.dumps(partial(evaluate, config=config, track_names=TRAIN_TRACKS, seed=7))   # pool.map
     pickle.dumps(g)
@@ -78,7 +78,8 @@ def test_cli_writes_results(tmp_path):
     champ = json.loads((run_dir / "champion.json").read_text())
     assert champ["method"] == "neat" and champ["generation"] in (0, 1)
     summary = json.loads((run_dir / "summary.json").read_text())
-    assert set(summary["tracks"]) == {"oval", "rounded_rect", "wavy", "peanut"}
+    from evo.ga_deap import TEST_TRACKS, TRAIN_TRACKS
+    assert set(summary["tracks"]) == set(TRAIN_TRACKS) | set(TEST_TRACKS)
     assert json.loads((run_dir / "config.json").read_text())["pop_size"] == 6
     steer, throttle = load_policy(run_dir / "champion.json")(np.full(8, 0.5))
     assert -1.0 <= steer <= 1.0 and -1.0 <= throttle <= 1.0

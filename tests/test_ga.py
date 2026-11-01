@@ -62,7 +62,7 @@ def test_evaluate_is_mean_over_tracks():
     genome = np.random.default_rng(1).uniform(-1, 1, GENOME_LEN).tolist()
     (fit,) = evaluate(genome, TRAIN_TRACKS, seed=7)
     per_track = [run_episode(make_policy(genome), load_track(t), 7)["fitness"] for t in TRAIN_TRACKS]
-    assert fit == pytest.approx(sum(per_track) / 3)
+    assert fit == pytest.approx(sum(per_track) / len(TRAIN_TRACKS))
     assert evaluate(genome, TRAIN_TRACKS, seed=7) == (fit,)               # deterministic
     pickle.dumps(partial(evaluate, track_names=TRAIN_TRACKS, seed=7))    # pool.map needs this
 
@@ -102,5 +102,20 @@ def test_cli_writes_results(tmp_path):
     champ = json.loads((run_dir / "champion.json").read_text())
     assert len(champ["genome"]) == GENOME_LEN and champ["generation"] in (0, 1)
     summary = json.loads((run_dir / "summary.json").read_text())
-    assert set(summary["tracks"]) == {"oval", "rounded_rect", "wavy", "peanut"}
+    from evo.ga_deap import TEST_TRACKS, TRAIN_TRACKS
+    assert set(summary["tracks"]) == set(TRAIN_TRACKS) | set(TEST_TRACKS)
     assert json.loads((run_dir / "config.json").read_text())["pop_size"] == 6
+
+
+def test_champion_labels_are_unique():
+    """evaluate/replay key rows by label: runs from different folders must not collide."""
+    from evo.champion import champion_labels
+
+    one = ["results/ga/default/seed0/champion.json", "results/ga/default/seed1/champion.json"]
+    assert champion_labels(one) == ["seed0", "seed1"]
+    methods = ["results/ga/default/seed0/champion.json", "results/neat/default/seed0/champion.json"]
+    assert champion_labels(methods) == ["ga/seed0", "neat/seed0"]
+    runs = ["results/ga/default/seed0/champion.json", "results/ga/f1/seed3/champion.json"]
+    assert champion_labels(runs) == ["default/seed0", "f1/seed3"]
+    both = runs + ["results/neat/default/seed0/champion.json"]
+    assert champion_labels(both) == ["ga/default/seed0", "ga/f1/seed3", "neat/default/seed0"]
