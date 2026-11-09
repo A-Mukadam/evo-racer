@@ -3,11 +3,21 @@
 Network: 8 inputs -> 8 hidden (tanh) -> 2 outputs (steer, throttle).
 Genome: flat list of 90 floats = W1 (8x8) + b1 (8) + W2 (8x2) + b2 (2).
 Parallel evaluation: toolbox.register("map", pool.map).
+
+Parameter control (GAConfig.sigma_control) changes the mutation step size
+during a run; everything else (rates, budget, selection) stays the same:
+  "fixed"          sigma for the whole run (default, the original GA).
+  "schedule"       deterministic: sigma shrinks geometrically to sigma_final.
+  "self_adaptive"  each driver carries its own sigma, mutated log-normally
+                   before its weights (sigma' = sigma * exp(tau * N(0, 1))),
+                   averaged between crossover partners. Not part of the
+                   90-float genome, so champions load and replay as before.
 """
 
 import argparse
 import csv
 import json
+import math
 import random
 import time
 from dataclasses import asdict, dataclass, fields
@@ -35,6 +45,8 @@ TEST_TRACKS = ("peanut",)
 INIT_RANGE = 1.0   # initial weights ~ uniform(-INIT_RANGE, INIT_RANGE)
 VALIDATION_SEEDS = tuple(range(10_000, 10_005))  # champion pick, training tracks
 TEST_SEEDS = tuple(range(20_000, 20_010))        # final report, all tracks
+SIGMA_CONTROLS = ("fixed", "schedule", "self_adaptive")
+MIN_SIGMA = 0.01   # self-adaptive floor, so step sizes can't collapse to zero
 
 # Created at import, not in build_toolbox: pool workers (spawned fresh on macOS)
 # import this module and need these classes to unpickle Individuals.
@@ -54,11 +66,16 @@ class GAConfig:
         generations: number of generations.
         cx_prob: crossover probability per pair, [0, 1].
         mut_prob: mutation probability per individual, [0, 1].
-        sigma: Gaussian mutation std dev, weight units.
+        sigma: Gaussian mutation std dev, weight units (the starting value
+            under "schedule" and "self_adaptive").
         indpb: per-gene mutation probability, [0, 1].
         selection: "tournament" | "roulette".
         tournsize: tournament size, if selection == "tournament".
         elitism: number of top individuals copied unchanged, >= 0.
+        sigma_control: one of SIGMA_CONTROLS (see module docstring).
+        sigma_final: last generation's sigma under "schedule", > 0.
+        tau: learning rate of the self-adaptive sigma; 1/sqrt(n) for one step
+            size per individual (Eiben & Smith).
         train_tracks: track names evaluated for fitness.
         processes: worker processes for multiprocessing.Pool (None = all cores,
             1 = no pool).
@@ -73,6 +90,9 @@ class GAConfig:
     selection: str = "tournament"
     tournsize: int = 3
     elitism: int = 1
+    sigma_control: str = "fixed"
+    sigma_final: float = 0.05
+    tau: float = 1 / math.sqrt(GENOME_LEN)
     train_tracks: tuple[str, ...] = TRAIN_TRACKS
     processes: int | None = None
 
@@ -147,6 +167,27 @@ def evaluate(genome, track_names: tuple[str, ...], seed: int) -> tuple[float]:
     return (sum(scores) / len(scores),)
 
 
+def scheduled_sigma(cfg: GAConfig, gen: int) -> float:
+    """Sigma for generation `gen` under "schedule": geometric decay from
+    cfg.sigma (gen 0) to cfg.sigma_final (last generation)."""
+    if cfg.generations <= 1:
+        return cfg.sigma
+    return cfg.sigma * (cfg.sigma_final / cfg.sigma) ** (gen / (cfg.generations - 1))
+
+
+def mutate_self_adaptive(ind, indpb: float, tau: float):
+    """Mutate the driver's own sigma first, then its weights with the new sigma."""
+    ind.sigma = max(MIN_SIGMA, ind.sigma * math.exp(tau * random.gauss(0.0, 1.0)))
+    return tools.mutGaussian(ind, mu=0.0, sigma=ind.sigma, indpb=indpb)
+
+
+def mate_self_adaptive(a, b):
+    """Two-point crossover on the weights; both children get the parents' mean sigma."""
+    tools.cxTwoPoint(a, b)
+    a.sigma = b.sigma = (a.sigma + b.sigma) / 2
+    return a, b
+
+
 def build_toolbox(cfg: GAConfig, pool=None):
     """Register creator types and operators.
 
@@ -163,8 +204,14 @@ def build_toolbox(cfg: GAConfig, pool=None):
     toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.attr, GENOME_LEN)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
     toolbox.register("evaluate", evaluate, track_names=cfg.train_tracks)
-    toolbox.register("mate", tools.cxTwoPoint)
-    toolbox.register("mutate", tools.mutGaussian, mu=0.0, sigma=cfg.sigma, indpb=cfg.indpb)
+    if cfg.sigma_control not in SIGMA_CONTROLS:
+        raise ValueError(f"unknown sigma_control {cfg.sigma_control!r}")
+    if cfg.sigma_control == "self_adaptive":
+        toolbox.register("mate", mate_self_adaptive)
+        toolbox.register("mutate", mutate_self_adaptive, indpb=cfg.indpb, tau=cfg.tau)
+    else:   # "schedule" re-registers mutate with that generation's sigma in run()
+        toolbox.register("mate", tools.cxTwoPoint)
+        toolbox.register("mutate", tools.mutGaussian, mu=0.0, sigma=cfg.sigma, indpb=cfg.indpb)
     if cfg.selection == "tournament":
         toolbox.register("select", tools.selTournament, tournsize=cfg.tournsize)
     elif cfg.selection == "roulette":
@@ -188,7 +235,8 @@ def run(cfg: GAConfig, seed: int, pool=None, verbose: bool = False) -> dict:
     Returns:
         {"best_genome": list[float], "best_fitness": float,
          "champion_genome": list[float], "champion_fitness": float, "champion_gen": int,
-         "logbook": deap.tools.Logbook (per-gen min/mean/max fitness),
+         "logbook": deap.tools.Logbook (per-gen min/mean/max fitness and
+                    sigma: the scheduled value, or the population mean),
          "evals": int  # total fitness evaluations, for matched-budget baselines}
 
     Every generation draws a new episode seed and re-scores the WHOLE
@@ -209,9 +257,12 @@ def run(cfg: GAConfig, seed: int, pool=None, verbose: bool = False) -> dict:
     stats.register("avg", np.mean)
     stats.register("max", np.max)
     logbook = tools.Logbook()
-    logbook.header = ["gen", "evals", "min", "avg", "max"]
+    logbook.header = ["gen", "evals", "min", "avg", "max", "sigma"]
 
     pop = toolbox.population(n=cfg.pop_size)
+    if cfg.sigma_control == "self_adaptive":
+        for ind in pop:
+            ind.sigma = cfg.sigma
     best_genome, best_fitness, evals = None, -np.inf, 0
     gen_bests = []
     for gen in range(cfg.generations):
@@ -220,7 +271,11 @@ def run(cfg: GAConfig, seed: int, pool=None, verbose: bool = False) -> dict:
         for ind, fit in zip(pop, fits):
             ind.fitness.values = fit
         evals += len(pop)
-        logbook.record(gen=gen, evals=len(pop), **stats.compile(pop))
+        if cfg.sigma_control == "self_adaptive":
+            sigma = float(np.mean([ind.sigma for ind in pop]))
+        else:
+            sigma = scheduled_sigma(cfg, gen) if cfg.sigma_control == "schedule" else cfg.sigma
+        logbook.record(gen=gen, evals=len(pop), sigma=sigma, **stats.compile(pop))
         if verbose:
             print(logbook.stream, flush=True)
 
@@ -230,6 +285,9 @@ def run(cfg: GAConfig, seed: int, pool=None, verbose: bool = False) -> dict:
             best_genome, best_fitness = list(gen_best), gen_best.fitness.values[0]
 
         if gen < cfg.generations - 1:   # breed the next generation
+            if cfg.sigma_control == "schedule":   # children of gen g+1 use its sigma
+                toolbox.register("mutate", tools.mutGaussian, mu=0.0,
+                                 sigma=scheduled_sigma(cfg, gen + 1), indpb=cfg.indpb)
             elites = [toolbox.clone(ind) for ind in tools.selBest(pop, cfg.elitism)]
             offspring = [toolbox.clone(ind) for ind in toolbox.select(pop, cfg.pop_size - cfg.elitism)]
             pop = elites + algorithms.varAnd(offspring, toolbox, cfg.cx_prob, cfg.mut_prob)
@@ -271,9 +329,9 @@ def save_run(out_dir: Path, cfg: GAConfig, seed: int, result: dict, report: dict
     (out_dir / "config.json").write_text(json.dumps({**asdict(cfg), "test_tracks": test_tracks, "seed": seed}, indent=2))
     with open(out_dir / "logbook.csv", "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["gen", "evals", "min", "avg", "max"])
+        w.writerow(["gen", "evals", "min", "avg", "max", "sigma"])
         for rec in result["logbook"]:
-            w.writerow([rec["gen"], rec["evals"], rec["min"], rec["avg"], rec["max"]])
+            w.writerow([rec["gen"], rec["evals"], rec["min"], rec["avg"], rec["max"], rec["sigma"]])
     (out_dir / "champion.json").write_text(json.dumps({
         "genome": result["champion_genome"],
         "validation_fitness": result["champion_fitness"],
