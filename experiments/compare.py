@@ -60,6 +60,10 @@ def fisher_p(x1: int, n1: int, x2: int, n2: int) -> float:
     return min(1.0, sum(prob(x) for x in range(max(0, k - n2), min(k, n1) + 1) if prob(x) <= p_obs * (1 + 1e-9)))
 
 
+def fmt_p(p: float) -> str:
+    return "< 0.001" if p < 0.001 else f"= {p:.3f}" if p < 0.01 else f"= {p:.2f}"
+
+
 def describe(label: str, runs: list[dict]) -> dict:
     s = [seed_stats(r) for r in runs]
     laps = [x["laps"] for x in s]
@@ -94,8 +98,8 @@ def main(argv: list[str] | None = None) -> None:
              "clean_p": fisher_p(base["clean"], base["n"], r["clean"], r["n"])}
         tests.append(t)
         print(f"\n{r['label']} vs {base['label']}: peanut laps {r['laps_mean'] - base['laps_mean']:+.2f} "
-              f"(permutation p = {t['laps_p']:.2f}); clean seeds {r['clean']}/{r['n']} vs "
-              f"{base['clean']}/{base['n']} (Fisher p = {t['clean_p']:.2f})")
+              f"(permutation p {fmt_p(t['laps_p'])}); clean seeds {r['clean']}/{r['n']} vs "
+              f"{base['clean']}/{base['n']} (Fisher p {fmt_p(t['clean_p'])})")
     if args.json:
         Path(args.json).write_text(json.dumps({"groups": rows, "tests": tests}, indent=2))
 

@@ -189,12 +189,22 @@ def spawn_pose(centerline, index=0):
     return float(p[0]), float(p[1]), float(np.arctan2(d[1], d[0]))
 
 
+# Second held-out track (never trained on): a braking test. Two long straights
+# (~550 and 600 px, enough to reach top speed) each end in a 180 deg, 85 px
+# hairpin, so the car must slow down hard. Training tracks have hairpins only
+# after short straights. Hairpin radius 85 px was picked so NEAT clears it about
+# as often as peanut (at 65 px both methods mostly failed); GA fails at every
+# radius tried (65, 75, 85).
+HAIRPIN_BRAKE = [("S", None), ("R", 85, 180), ("S", 250), ("L", 65, 90), ("S", None), ("L", 65, 90),
+                 ("S", 300), ("R", 85, 180), ("S", 600), ("R", 90, 90), ("S", 300), ("R", 90, 90)]
+
 TRACKS = {
     "oval": oval,
     "rounded_rect": rounded_rect,
     "wavy": wavy,
     "peanut": peanut,
     **{name: partial(piece_loop, pieces) for name, pieces in F1_PIECES.items()},
+    "hairpin_brake": partial(piece_loop, HAIRPIN_BRAKE),
 }
 F1_TRACKS = tuple(F1_PIECES)
 

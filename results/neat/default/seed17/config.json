@@ -1,0 +1,20 @@
+{
+  "seed": 17,
+  "generations": 100,
+  "config": "evo/neat_config.ini",
+  "pop_size": 100,
+  "processes": 4,
+  "out": "/Users/arshanmukadam/Documents/Fall26/Evolutionary Comp/evo-racer/results/neat/default",
+  "train_tracks": [
+    "oval",
+    "rounded_rect",
+    "wavy",
+    "f1_chicanes",
+    "f1_hairpins",
+    "f1_esses",
+    "f1_reverse"
+  ],
+  "test_tracks": [
+    "peanut"
+  ]
+}

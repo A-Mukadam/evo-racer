@@ -1,0 +1,64 @@
+{
+  "seed": 1,
+  "evals": 10000,
+  "seconds": 245.6,
+  "best_single_seed_fitness": 9204.642857142857,
+  "champion_validation_fitness": 9005.857142857141,
+  "champion_generation": 34,
+  "champion_hidden_nodes": 0,
+  "champion_connections": 12,
+  "test_seeds": [
+    20000,
+    20001,
+    20002,
+    20003,
+    20004,
+    20005,
+    20006,
+    20007,
+    20008,
+    20009
+  ],
+  "tracks": {
+    "oval": {
+      "laps": 3.216,
+      "crashes": 0,
+      "fitness": 8107.000000000002
+    },
+    "rounded_rect": {
+      "laps": 2.9099999999999997,
+      "crashes": 0,
+      "fitness": 8802.75
+    },
+    "wavy": {
+      "laps": 2.7636363636363637,
+      "crashes": 0,
+      "fitness": 9196.0
+    },
+    "f1_chicanes": {
+      "laps": 2.7513513513513512,
+      "crashes": 0,
+      "fitness": 10264.833333333332
+    },
+    "f1_hairpins": {
+      "laps": 1.5132075471698114,
+      "crashes": 0,
+      "fitness": 8086.833333333334
+    },
+    "f1_esses": {
+      "laps": 2.3024999999999998,
+      "crashes": 0,
+      "fitness": 9286.75
+    },
+    "f1_reverse": {
+      "laps": 2.6714285714285713,
+      "crashes": 0,
+      "fitness": 9427.916666666668
+    },
+    "peanut": {
+      "laps": 2.7885714285714283,
+      "crashes": 0,
+      "fitness": 9841.333333333334
+    }
+  }
+}
