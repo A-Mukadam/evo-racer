@@ -1,0 +1,28 @@
+{
+  "pop_size": 100,
+  "generations": 100,
+  "cx_prob": 0.5,
+  "mut_prob": 0.2,
+  "sigma": 0.3,
+  "indpb": 0.1,
+  "selection": "tournament",
+  "tournsize": 3,
+  "elitism": 1,
+  "sigma_control": "self_adaptive",
+  "sigma_final": 0.05,
+  "tau": 0.10540925533894598,
+  "train_tracks": [
+    "oval",
+    "rounded_rect",
+    "wavy",
+    "f1_chicanes",
+    "f1_hairpins",
+    "f1_esses",
+    "f1_reverse"
+  ],
+  "processes": 4,
+  "test_tracks": [
+    "peanut"
+  ],
+  "seed": 4
+}

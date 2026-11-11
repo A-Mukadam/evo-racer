@@ -1,0 +1,8 @@
+group            seeds   peanut laps   clean  crash% train laps train crash%  min/run champ gen
+fixed                5   2.16 ± 1.01   3/5       40%       2.21        21.7%      6.4        79
+schedule             5   1.71 ± 1.20   2/5       60%       2.06        31.7%      8.2        84
+self_adaptive        5   2.55 ± 1.04   4/5       20%       2.33        15.4%      8.9        87
+
+schedule vs fixed: peanut laps -0.45 (permutation p = 0.48); clean seeds 2/5 vs 3/5 (Fisher p = 1.00)
+
+self_adaptive vs fixed: peanut laps +0.39 (permutation p = 0.69); clean seeds 4/5 vs 3/5 (Fisher p = 1.00)

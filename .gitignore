@@ -1,5 +1,16 @@
 .venv/
 __pycache__/
 *.png
-results/
+# results: only the final runs are tracked (exploratory runs stay local)
+results/*
+!results/README.md
+!results/eval/
+!results/ga/
+results/ga/*
+!results/ga/default/
+!results/ga/sigma_schedule/
+!results/ga/sigma_self_adaptive/
+!results/neat/
+results/neat/*
+!results/neat/default/
 !docs/img/*.png

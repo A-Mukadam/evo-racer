@@ -119,3 +119,58 @@ def test_champion_labels_are_unique():
     assert champion_labels(runs) == ["default/seed0", "f1/seed3"]
     both = runs + ["results/neat/default/seed0/champion.json"]
     assert champion_labels(both) == ["ga/default/seed0", "ga/f1/seed3", "neat/default/seed0"]
+
+
+def test_scheduled_sigma_decays_geometrically():
+    from evo.ga_deap import GAConfig, scheduled_sigma
+
+    cfg = GAConfig(sigma=0.3, sigma_final=0.05, generations=100)
+    assert scheduled_sigma(cfg, 0) == pytest.approx(0.3)
+    assert scheduled_sigma(cfg, 99) == pytest.approx(0.05)
+    steps = [scheduled_sigma(cfg, g) for g in range(100)]
+    assert all(a > b for a, b in zip(steps, steps[1:]))
+    assert steps[1] / steps[0] == pytest.approx(steps[99] / steps[98])   # constant ratio
+
+
+def test_self_adaptive_sigma_moves_and_survives_cloning():
+    import pickle
+    import random
+    from deap import creator
+    from evo.ga_deap import GAConfig, MIN_SIGMA, build_toolbox
+
+    random.seed(0)
+    toolbox = build_toolbox(GAConfig(sigma_control="self_adaptive"))
+    ind = creator.Individual([0.0] * GENOME_LEN)
+    ind.sigma = 0.3
+    (ind,) = toolbox.mutate(ind)
+    assert ind.sigma != 0.3 and ind.sigma >= MIN_SIGMA
+    assert any(w != 0.0 for w in ind)                                   # weights moved too
+    assert toolbox.clone(ind).sigma == ind.sigma                         # elites keep it
+    assert pickle.loads(pickle.dumps(ind)).sigma == ind.sigma            # pool.map keeps it
+
+    a, b = creator.Individual([0.0] * GENOME_LEN), creator.Individual([1.0] * GENOME_LEN)
+    a.sigma, b.sigma = 0.1, 0.5
+    toolbox.mate(a, b)
+    assert a.sigma == b.sigma == pytest.approx(0.3)
+
+
+@pytest.mark.parametrize("mode", ["schedule", "self_adaptive"])
+def test_parameter_control_runs(mode):
+    """Same budget and bookkeeping as the fixed GA; sigma is logged per generation."""
+    from evo.ga_deap import GAConfig, run
+
+    cfg = GAConfig(pop_size=8, generations=3, sigma_control=mode, mut_prob=1.0)
+    a, b = run(cfg, seed=0), run(cfg, seed=0)
+    assert a["evals"] == 8 * 3 and len(a["champion_genome"]) == GENOME_LEN
+    sig = a["logbook"].select("sigma")
+    assert sig[0] == pytest.approx(0.3) and sig[-1] != pytest.approx(0.3)
+    if mode == "schedule":
+        assert sig[-1] == pytest.approx(cfg.sigma_final)
+    assert a["logbook"].select("max") == b["logbook"].select("max")     # deterministic
+
+
+def test_unknown_sigma_control_rejected():
+    from evo.ga_deap import GAConfig, build_toolbox
+
+    with pytest.raises(ValueError):
+        build_toolbox(GAConfig(sigma_control="annealed"))

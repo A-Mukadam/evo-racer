@@ -1,0 +1,41 @@
+{
+  "method": "neat",
+  "genome_file": "champion.pkl",
+  "config_file": "neat_config.ini",
+  "validation_fitness": 9239.214285714286,
+  "generation": 84,
+  "hidden_nodes": 2,
+  "enabled_connections": 6,
+  "connections": [
+    [
+      -8,
+      1,
+      -4.500658773204344
+    ],
+    [
+      -6,
+      0,
+      6.814391703221789
+    ],
+    [
+      -5,
+      0,
+      4.016094372419261
+    ],
+    [
+      -5,
+      342,
+      -1.7962864193315644
+    ],
+    [
+      -4,
+      1,
+      8.750547205992007
+    ],
+    [
+      -2,
+      0,
+      -8.469496549073476
+    ]
+  ]
+}
